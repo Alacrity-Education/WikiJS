@@ -22,6 +22,22 @@
 
 </div>
 
+## Alacrity-Education Fork
+
+This fork fixes how Wiki.js evaluates page rule specificity when a user belongs to multiple groups with overlapping rules.
+
+**Problem:** The upstream code compares rule specificity using raw string length (`rule.path.length`). This causes unintuitive results — a TAG rule for `"public"` (6 chars) loses to a START rule for `"Projects/"` (9 chars), even though TAG is meant to be a higher-priority match type. Similarly, `"geography/countries"` (19 chars) wrongly overrides `"geo/areas/north"` (15 chars) despite being less deeply nested.
+
+**Fix:** Specificity is now computed from path structure rather than character count:
+- **Path Starts With / Path Ends With**: scored as `segments + separators` (e.g. `Projects/secret` = 2 segments + 1 separator = 3)
+- **Path Matches Regex / Tag Matches / Path is Exactly**: scored as `MAX_SAFE_INTEGER`, so they always override path-based rules
+
+The `higherPriority` tie-breaking between EXACT > TAG > REGEX still applies when two rules share the same specificity score.
+
+Docker images are published to `ghcr.io/alacrity-education/wikijs`.
+
+---
+
 - **[Official Website](https://js.wiki/)**
 - **[Documentation](https://docs.requarks.io/)**
 - [Requirements](https://docs.requarks.io/install/requirements)
