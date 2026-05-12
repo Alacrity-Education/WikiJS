@@ -241,7 +241,7 @@ module.exports = {
       let checkState = {
         deny: false,
         match: false,
-        specificity: ''
+        specificity: 0
       }
       user.groups.forEach(grp => {
         const grpId = _.isObject(grp) ? _.get(grp, 'id', 0) : grp
@@ -365,8 +365,26 @@ module.exports = {
    *
    * @access private
    */
+  _getPathSpecificity (matchType, rulePath) {
+    switch (matchType) {
+      case 'EXACT':
+      case 'TAG':
+      case 'REGEX':
+        return Number.MAX_SAFE_INTEGER
+      case 'START':
+      case 'END':
+      default: {
+        const segments = rulePath.split('/').filter(s => s.length > 0).length
+        const separators = (rulePath.match(/\//g) || []).length
+        return segments + separators
+      }
+    }
+  },
+
   _applyPageRuleSpecificity ({ rule, checkState, higherPriority = [] }) {
-    if (rule.path.length === checkState.specificity.length) {
+    const ruleSpecificity = this._getPathSpecificity(rule.match, rule.path)
+
+    if (ruleSpecificity === checkState.specificity) {
       // Do not override higher priority rules
       if (_.includes(higherPriority, checkState.match)) {
         return checkState
@@ -375,7 +393,7 @@ module.exports = {
       if (rule.match === checkState.match && checkState.deny && !rule.deny) {
         return checkState
       }
-    } else if (rule.path.length < checkState.specificity.length) {
+    } else if (ruleSpecificity < checkState.specificity) {
       // Do not override higher specificity rules
       return checkState
     }
@@ -383,7 +401,7 @@ module.exports = {
     return {
       deny: rule.deny,
       match: rule.match,
-      specificity: rule.path
+      specificity: ruleSpecificity
     }
   },
 
