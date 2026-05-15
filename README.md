@@ -38,6 +38,8 @@ This fork fixes how Wiki.js evaluates page rule specificity when a user belongs 
 
 At equal specificity, DENY overrides ALLOW. No other tie-breaking is needed.
 
+**Page tree fix:** The upstream tree resolver passes only `path` and `locale` to access checks, making TAG and REGEX rules invisible in the sidebar. This fork fetches each page's tags from the database and passes them through. Folders that would otherwise be hidden are shown if any descendant page passes the access check, so tag-only or regex-only rules still produce a navigable tree.
+
 Docker images are published to `ghcr.io/alacrity-education/wikijs`.
 
 ---
