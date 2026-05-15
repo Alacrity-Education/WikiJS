@@ -249,14 +249,6 @@ jobs:
         name: drop
         path: drop
 
-    - name: Generate Changelog
-      id: changelog
-      uses: Requarks/changelog-action@v1
-      with:
-        token: ${{ github.token }}
-        tag: ${{ github.ref_name }}
-        writeToFile: false
-
     - name: Update GitHub Release
       uses: ncipollo/release-action@v1.21.0
       with:
@@ -264,7 +256,6 @@ jobs:
         draft: false
         makeLatest: true
         name: ${{ github.ref_name }}
-        body: ${{ steps.changelog.outputs.changes }}
         token: ${{ github.token }}
         artifacts: 'drop/wiki-js.tar.gz'
 
