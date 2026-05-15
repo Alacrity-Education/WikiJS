@@ -168,54 +168,11 @@ jobs:
         tags: |
           ghcr.io/alacrity-education/wikijs:canary-arm64-${{ env.REL_VERSION_STRICT }}
 
-  windows:
-    name: Windows Build
-    runs-on: windows-latest
-    needs: [cypress]
-
-    steps:
-    - name: Setup Node.js environment
-      uses: actions/setup-node@v6
-      with:
-        node-version: 24.x
-
-    - name: Download a Build Artifact
-      uses: actions/download-artifact@v8
-      with:
-        name: drop
-        path: drop
-
-    - name: Extract Build
-      run: |
-        mkdir -p win
-        tar -xzf $env:GITHUB_WORKSPACE\drop\wiki-js.tar.gz -C $env:GITHUB_WORKSPACE\win
-        Copy-Item win\node_modules\extract-files\package.json patch-extractfile.json -Force
-        Remove-Item -Path win\node_modules -Force -Recurse
-
-    - name: Install Dependencies
-      run: |
-        yarn --production --frozen-lockfile --non-interactive
-        yarn patch-package
-      working-directory: win
-
-    - name: Fix patched packages
-      run: |
-        Copy-Item patch-extractfile.json win\node_modules\extract-files\package.json -Force
-
-    - name: Create Bundle
-      run: tar -czf $env:GITHUB_WORKSPACE\wiki-js-windows.tar.gz -C $env:GITHUB_WORKSPACE\win .
-
-    - name: Upload a Build Artifact
-      uses: actions/upload-artifact@v7
-      with:
-        name: drop-win
-        path: wiki-js-windows.tar.gz
-
   beta:
     name: Publish Beta Images
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build, arm, windows]
+    needs: [build, arm]
     permissions:
       packages: write
 
@@ -292,12 +249,6 @@ jobs:
         name: drop
         path: drop
 
-    - name: Download Windows Build
-      uses: actions/download-artifact@v8
-      with:
-        name: drop-win
-        path: drop-win
-
     - name: Generate Changelog
       id: changelog
       uses: Requarks/changelog-action@v1
@@ -315,7 +266,7 @@ jobs:
         name: ${{ github.ref_name }}
         body: ${{ steps.changelog.outputs.changes }}
         token: ${{ github.token }}
-        artifacts: 'drop/wiki-js.tar.gz,drop-win/wiki-js-windows.tar.gz'
+        artifacts: 'drop/wiki-js.tar.gz'
 
     # - name: Notify Slack Releases Channel
     #   uses: slackapi/slack-github-action@v1.26.0
