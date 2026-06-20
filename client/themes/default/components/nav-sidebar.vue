@@ -51,12 +51,12 @@
             v-icon(small) mdi-folder-open
           v-list-item-title {{ item.title }}
         v-divider.mt-2
-        v-list-item.mt-2(v-if='currentParent.pageId > 0', :href='`/` + currentParent.locale + `/` + currentParent.path', :key='`directorypage-` + currentParent.id', :input-value='path === currentParent.path')
+        v-list-item.mt-2(v-if='currentParent.pageId > 0', :href='directoryPageHref', :key='`directorypage-` + currentParent.id', :input-value='isOnDirectoryPage')
           v-list-item-avatar(size='24')
             v-icon mdi-text-box
           v-list-item-title {{ currentParent.title }}
         v-subheader.pl-4 {{$t('common:sidebar.currentDirectory')}}
-      template(v-for='item of currentItems')
+      template(v-for='item of filteredItems')
         v-list-item(v-if='item.isFolder', :key='`childfolder-` + item.id', @click='fetchBrowseItems(item)')
           v-list-item-avatar(size='24')
             v-icon mdi-folder
@@ -107,7 +107,32 @@ export default {
   },
   computed: {
     path: get('page/path'),
-    locale: get('page/locale')
+    locale: get('page/locale'),
+    indexPageItem () {
+      if (!this.currentParent.pageId || this.currentParent.pageId <= 0) return null
+      return this.currentItems.find(item =>
+        !item.isFolder && item.path.endsWith('/index') && item.pageId === this.currentParent.pageId
+      ) || null
+    },
+    directoryPageHref () {
+      if (!this.currentParent.pageId || this.currentParent.pageId <= 0) return ''
+      if (this.indexPageItem) {
+        return `/${this.indexPageItem.locale}/${this.indexPageItem.path}`
+      }
+      return `/${this.currentParent.locale}/${this.currentParent.path}`
+    },
+    isOnDirectoryPage () {
+      if (this.indexPageItem) {
+        return this.path === this.indexPageItem.path
+      }
+      return this.path === this.currentParent.path
+    },
+    filteredItems () {
+      if (this.indexPageItem) {
+        return this.currentItems.filter(item => item !== this.indexPageItem)
+      }
+      return this.currentItems
+    }
   },
   methods: {
     switchMode (mode) {

@@ -54,6 +54,17 @@ module.exports = async (pageId) => {
       }
     }
 
+    // Link index pages to their parent folders
+    for (const entry of tree) {
+      if (!entry.isFolder && entry.path.endsWith('/index')) {
+        const folderPath = entry.path.slice(0, -6)
+        const folder = _.find(tree, { localeCode: entry.localeCode, path: folderPath, isFolder: true })
+        if (folder && !folder.pageId) {
+          folder.pageId = entry.pageId
+        }
+      }
+    }
+
     await WIKI.models.knex.table('pageTree').truncate()
     if (tree.length > 0) {
       // -> Save in chunks, because of per query max parameters (35k Postgres, 2k MSSQL, 1k for SQLite)

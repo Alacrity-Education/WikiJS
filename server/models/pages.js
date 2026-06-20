@@ -355,6 +355,40 @@ module.exports = class Page extends Model {
       mode: 'create'
     })
 
+    // -> Auto-create missing folder overview pages
+    if (!opts.skipFolderCheck) {
+      const pathParts = opts.path.split('/')
+      if (pathParts.length > 1) {
+        let folderPath = ''
+        for (let i = 0; i < pathParts.length - 1; i++) {
+          folderPath = folderPath ? `${folderPath}/${pathParts[i]}` : pathParts[i]
+          const indexPath = `${folderPath}/index`
+          const inlinePage = await WIKI.models.pages.query().select('id').where({ localeCode: opts.locale, path: folderPath }).first()
+          if (inlinePage) continue
+          const indexPage = await WIKI.models.pages.query().select('id').where({ localeCode: opts.locale, path: indexPath }).first()
+          if (indexPage) continue
+          try {
+            await WIKI.models.pages.createPage({
+              user: opts.user,
+              path: indexPath,
+              locale: opts.locale,
+              title: pathParts[i],
+              content: '<div class="wikijs-folder-marker"></div>',
+              editor: 'code',
+              description: '',
+              tags: [],
+              isPrivate: false,
+              isPublished: true,
+              skipStorage: true,
+              skipFolderCheck: true
+            })
+          } catch (err) {
+            WIKI.logger.warn(`Failed to auto-create folder overview page at ${indexPath}: ${err.message}`)
+          }
+        }
+      }
+    }
+
     // -> Get latest updatedAt
     page.updatedAt = await WIKI.models.pages.query().findById(page.id).select('updatedAt').then(r => r.updatedAt)
 

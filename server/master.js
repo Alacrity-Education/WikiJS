@@ -62,7 +62,7 @@ module.exports = async () => {
   })
   app.use('/_assets', express.static(path.join(WIKI.ROOTPATH, 'assets'), {
     index: false,
-    maxAge: '7d'
+    maxAge: global.DEV ? 0 : '7d'
   }))
 
   // ----------------------------------------

@@ -362,6 +362,7 @@ import Tabset from './tabset.vue'
 import NavSidebar from './nav-sidebar.vue'
 import Prism from 'prismjs'
 import mermaid from 'mermaid'
+import gql from 'graphql-tag'
 import { get, sync } from 'vuex-pathify'
 import _ from 'lodash'
 import ClipboardJS from 'clipboard'
@@ -648,6 +649,8 @@ export default {
         }
       })
 
+      this.renderFolderMarkers()
+
       window.boot.notify('page-ready')
     })
   },
@@ -711,6 +714,81 @@ export default {
       if (focusNewComment) {
         document.querySelector('#discussion-new').focus()
       }
+    },
+    async renderFolderMarkers () {
+      const markers = this.$refs.container.querySelectorAll('.wikijs-folder-marker')
+      if (markers.length === 0) return
+      try {
+        const resp = await this.$apollo.query({
+          query: gql`
+            query ($path: String, $locale: String!) {
+              pages {
+                tree(path: $path, mode: ALL, locale: $locale) {
+                  id
+                  path
+                  title
+                  isFolder
+                  pageId
+                  parent
+                  locale
+                }
+              }
+            }
+          `,
+          fetchPolicy: 'network-only',
+          variables: {
+            path: this.path,
+            locale: this.locale
+          }
+        })
+        const items = _.get(resp, 'data.pages.tree', [])
+        const currentPage = _.find(items, ['pageId', this.pageId])
+        if (!currentPage) return
+        const siblings = items.filter(item =>
+          item.parent === currentPage.parent &&
+          item.id !== currentPage.id &&
+          !(item.path.endsWith('/index') && !item.isFolder)
+        )
+        const folders = _.sortBy(siblings.filter(item => item.isFolder), 'title')
+        const pages = _.sortBy(siblings.filter(item => !item.isFolder), 'title')
+        const html = this.buildFolderListingHtml(folders, pages)
+        markers.forEach(marker => { marker.innerHTML = html })
+      } catch (err) {
+        console.warn('Failed to render folder markers:', err)
+      }
+    },
+    buildFolderListingHtml (folders, pages) {
+      let html = '<div class="wikijs-folder-listing">'
+      if (folders.length > 0) {
+        html += '<div class="wikijs-folder-listing-section">'
+        html += '<div class="wikijs-folder-listing-header"><i class="v-icon mdi mdi-folder-multiple" style="font-size:20px;margin-right:8px;"></i>Folders</div>'
+        html += '<div class="wikijs-folder-listing-items">'
+        for (const f of folders) {
+          const href = f.pageId > 0 ? `/${f.locale}/${f.path}` : '#'
+          html += `<a class="wikijs-folder-listing-item is-folder" href="${_.escape(href)}">`
+          html += '<i class="v-icon mdi mdi-folder" style="font-size:20px;margin-right:8px;color:#FFA000;"></i>'
+          html += `<span>${_.escape(f.title)}</span></a>`
+        }
+        html += '</div></div>'
+      }
+      if (pages.length > 0) {
+        html += '<div class="wikijs-folder-listing-section">'
+        html += '<div class="wikijs-folder-listing-header"><i class="v-icon mdi mdi-file-document-multiple" style="font-size:20px;margin-right:8px;"></i>Pages</div>'
+        html += '<div class="wikijs-folder-listing-items">'
+        for (const p of pages) {
+          html += `<a class="wikijs-folder-listing-item is-page" href="/${_.escape(p.locale)}/${_.escape(p.path)}">`
+          html += '<i class="v-icon mdi mdi-text-box" style="font-size:20px;margin-right:8px;color:#1976D2;"></i>'
+          html += `<span>${_.escape(p.title)}</span></a>`
+        }
+        html += '</div></div>'
+      }
+      if (folders.length === 0 && pages.length === 0) {
+        html += '<div class="wikijs-folder-listing-empty">'
+        html += '<i class="v-icon mdi mdi-folder-open" style="font-size:20px;margin-right:8px;"></i>'
+        html += 'This folder is empty.</div>'
+      }
+      html += '</div>'
+      return html
     }
   }
 }
@@ -745,6 +823,65 @@ export default {
 
 .page-col-sd::-webkit-scrollbar {
   display: none;
+}
+
+.wikijs-folder-listing {
+  padding: 16px 0;
+
+  &-section {
+    margin-bottom: 16px;
+  }
+
+  &-header {
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+
+    @at-root .theme--dark & {
+      color: #aaa;
+    }
+  }
+
+  &-items {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 4px;
+    text-decoration: none;
+    color: inherit;
+    transition: background-color 0.15s;
+
+    &:hover {
+      background-color: rgba(0, 0, 0, 0.04);
+
+      @at-root .theme--dark & {
+        background-color: rgba(255, 255, 255, 0.08);
+      }
+    }
+
+    span {
+      font-size: 15px;
+    }
+  }
+
+  &-empty {
+    display: flex;
+    align-items: center;
+    padding: 16px;
+    color: #999;
+    font-style: italic;
+  }
 }
 
 .page-header-section {

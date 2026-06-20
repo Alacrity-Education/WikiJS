@@ -173,6 +173,15 @@
                 v-btn(icon, tile, height='64', v-on='on', @click='pageNew', :aria-label='$t(`common:header.newPage`)')
                   v-icon(color='grey') mdi-text-box-plus-outline
               span {{$t('common:header.newPage')}}
+
+          //- NEW FOLDER
+
+          template(v-if='hasNewPagePermission && path && mode !== `edit`')
+            v-tooltip(bottom)
+              template(v-slot:activator='{ on }')
+                v-btn(icon, tile, height='64', v-on='on', @click='folderNew', :aria-label='$t(`common:header.newFolder`)')
+                  v-icon(color='grey') mdi-folder-plus-outline
+              span {{$t('common:header.newFolder')}}
             v-divider(vertical)
 
           //- ADMIN
@@ -241,6 +250,7 @@
     page-selector(mode='create', v-model='duplicateOpts.modal', :open-handler='pageDuplicateHandle', :path='duplicateOpts.path', :locale='duplicateOpts.locale')
     page-delete(v-model='deletePageModal', v-if='path && path.length')
     page-convert(v-model='convertPageModal', v-if='path && path.length')
+    folder-create(v-model='newFolderModal')
 
     .nav-header-dev(v-if='isDevMode')
       v-icon mdi-alert
@@ -260,7 +270,8 @@ import movePageMutation from 'gql/common/common-pages-mutation-move.gql'
 export default {
   components: {
     PageDelete: () => import('./page-delete.vue'),
-    PageConvert: () => import('./page-convert.vue')
+    PageConvert: () => import('./page-convert.vue'),
+    FolderCreate: () => import('./folder-create.vue')
   },
   props: {
     dense: {
@@ -283,6 +294,7 @@ export default {
       deletePageModal: false,
       locales: siteLangs,
       isDevMode: false,
+      newFolderModal: false,
       duplicateOpts: {
         locale: 'en',
         path: 'new-page',
@@ -395,6 +407,9 @@ export default {
     },
     searchMove(dir) {
       this.$root.$emit('searchMove', dir)
+    },
+    folderNew () {
+      this.newFolderModal = true
     },
     pageNew () {
       this.newPageModal = true
