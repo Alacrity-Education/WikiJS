@@ -70,27 +70,39 @@
             )
             .body-2 {{$t('common:pageSelector.folderEmptyWarning')}}
       v-card-actions.grey.pa-2(:class='$vuetify.theme.dark ? `darken-2` : `lighten-1`', v-if='!mustExist')
-        v-select(
-          solo
-          dark
-          flat
-          background-color='grey darken-3-d2'
-          hide-details
-          single-line
-          :items='namespaces'
-          style='flex: 0 0 100px; border-radius: 4px 0 0 4px;'
-          v-model='currentLocale'
+        .d-flex.flex-column(style='width: 100%')
+          v-text-field.mb-1(
+            v-if='mode === `create`'
+            ref='titleIpt'
+            solo
+            hide-details
+            label='Page Title'
+            v-model='currentTitle'
+            flat
           )
-        v-text-field(
-          ref='pathIpt'
-          solo
-          hide-details
-          prefix='/'
-          v-model='currentPath'
-          flat
-          clearable
-          style='border-radius: 0 4px 4px 0;'
-        )
+          .d-flex
+            v-select(
+              solo
+              dark
+              flat
+              background-color='grey darken-3-d2'
+              hide-details
+              single-line
+              :items='namespaces'
+              style='flex: 0 0 100px; border-radius: 4px 0 0 4px;'
+              v-model='currentLocale'
+            )
+            v-text-field(
+              ref='pathIpt'
+              solo
+              hide-details
+              prefix='/'
+              v-model='currentPath'
+              flat
+              :readonly='mode === `create`'
+              :clearable='mode !== `create`'
+              style='border-radius: 0 4px 4px 0;'
+            )
       v-card-chin
         v-spacer
         v-btn(text, @click='close') {{$t('common:actions.cancel')}}
@@ -139,6 +151,7 @@ export default {
       treeViewCacheId: 0,
       searchLoading: false,
       currentLocale: siteConfig.lang,
+      currentTitle: '',
       currentFolderPath: '',
       currentPath: 'new-page',
       currentPage: null,
@@ -183,6 +196,9 @@ export default {
       return _.sortBy(_.filter(this.pages, ['parent', _.head(this.currentNode) || 0]), ['title', 'path'])
     },
     isValidPath () {
+      if (this.mode === 'create' && (!this.currentTitle || !this.currentTitle.trim())) {
+        return false
+      }
       if (!this.currentPath) {
         return false
       }
@@ -207,11 +223,21 @@ export default {
   watch: {
     isShown (newValue, oldValue) {
       if (newValue && !oldValue) {
-        this.currentPath = this.path
         this.currentLocale = this.locale
-        _.delay(() => {
-          this.$refs.pathIpt.focus()
-        })
+        if (this.mode === 'create') {
+          this.currentTitle = ''
+          this.currentPath = ''
+          _.delay(() => {
+            if (this.$refs.titleIpt) {
+              this.$refs.titleIpt.focus()
+            }
+          })
+        } else {
+          this.currentPath = this.path
+          _.delay(() => {
+            this.$refs.pathIpt.focus()
+          })
+        }
       }
     },
     currentNode (newValue, oldValue) {
@@ -235,12 +261,25 @@ export default {
           })
         }
 
-        this.currentPath = _.compact([_.get(current, 'path', ''), _.last(this.currentPath.split('/'))]).join('/')
+        if (this.mode === 'create') {
+          const folderPath = _.get(current, 'path', '')
+          const slug = this.generateSlug(this.currentTitle)
+          this.currentPath = _.compact([folderPath, slug]).join('/')
+        } else {
+          this.currentPath = _.compact([_.get(current, 'path', ''), _.last(this.currentPath.split('/'))]).join('/')
+        }
       }
     },
     currentPage (newValue, oldValue) {
-      if (!_.isEmpty(newValue)) {
+      if (!_.isEmpty(newValue) && this.mode !== 'create') {
         this.currentPath = newValue.path
+      }
+    },
+    currentTitle (newValue) {
+      if (this.mode === 'create') {
+        const slug = this.generateSlug(newValue)
+        const currentFolder = this.currentNode[0] === 0 ? '' : _.get(_.find(this.all, ['id', this.currentNode[0]]), 'path', '')
+        this.currentPath = _.compact([currentFolder, slug]).join('/')
       }
     },
     currentLocale (newValue, oldValue) {
@@ -268,11 +307,21 @@ export default {
       const exit = this.openHandler({
         locale: this.currentLocale,
         path: this.currentPath,
+        title: this.currentTitle || '',
         id: (this.mustExist && this.currentPage) ? this.currentPage.pageId : 0
       })
       if (exit !== false) {
         this.close()
       }
+    },
+    generateSlug (title) {
+      if (!title) return ''
+      return title
+        .toLowerCase()
+        .replace(/\s+/g, '-')
+        .replace(/[^0-9a-z_-]/g, '')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '')
     },
     async fetchFolders (item) {
       this.searchLoading = true

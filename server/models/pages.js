@@ -710,6 +710,11 @@ module.exports = class Page extends Model {
       throw new WIKI.Error.PageNotFound()
     }
 
+    // -> Check if page is a folder index page
+    if (page.path.endsWith('/index')) {
+      throw new Error('Folders cannot be moved with the move option. To achieve the same effect, create the new folder in the desired location, move each page individually, and delete the source folder.')
+    }
+
     // -> Validate path
     if (opts.destinationPath.includes('.') || opts.destinationPath.includes(' ') || opts.destinationPath.includes('\\') || opts.destinationPath.includes('//')) {
       throw new WIKI.Error.PageIllegalPath()
@@ -826,6 +831,21 @@ module.exports = class Page extends Model {
     const page = await WIKI.models.pages.getPageFromDb(_.has(opts, 'id') ? opts.id : opts)
     if (!page) {
       throw new WIKI.Error.PageNotFound()
+    }
+
+    // -> Check if page is a folder index page with children
+    if (page.path.endsWith('/index')) {
+      const folderPath = page.path.slice(0, -6)
+      const childPages = await WIKI.models.knex('pages')
+        .where('localeCode', page.localeCode)
+        .where('path', 'like', `${folderPath}/%`)
+        .whereNot('path', page.path)
+        .count('* as count')
+        .first()
+      const count = parseInt(childPages.count)
+      if (count > 0) {
+        throw new Error(`Cannot delete this folder. It currently contains ${count} pages. Move or delete the pages to delete this folder. It is possible that you do not have permissions to view all pages.`)
+      }
     }
 
     // -> Check for page access
@@ -953,6 +973,65 @@ module.exports = class Page extends Model {
    *
    * @returns {Promise} Promise with no value
    */
+  static async ensureFolderIndexPages() {
+    const folders = await WIKI.models.knex('pageTree')
+      .where('isFolder', true)
+      .whereNull('pageId')
+      .select('path', 'localeCode', 'title')
+
+    if (folders.length === 0) return
+
+    WIKI.logger.info(`Found ${folders.length} folders without index pages, creating...`)
+
+    const rootUser = await WIKI.models.users.getRootUser()
+    let created = 0
+
+    for (const folder of folders) {
+      const indexPath = `${folder.path}/index`
+
+      const existingIndex = await WIKI.models.pages.query()
+        .select('id')
+        .where({ localeCode: folder.localeCode, path: indexPath })
+        .first()
+      if (existingIndex) continue
+
+      const existingInline = await WIKI.models.pages.query()
+        .select('id')
+        .where({ localeCode: folder.localeCode, path: folder.path })
+        .first()
+      if (existingInline) continue
+
+      try {
+        await WIKI.models.pages.query().insert({
+          authorId: rootUser.id,
+          content: '<div class="wikijs-folder-marker"></div>',
+          creatorId: rootUser.id,
+          contentType: 'html',
+          description: '',
+          editorKey: 'code',
+          hash: pageHelper.generateHash({ path: indexPath, locale: folder.localeCode, privateNS: '' }),
+          isPrivate: false,
+          isPublished: true,
+          localeCode: folder.localeCode,
+          path: indexPath,
+          publishEndDate: '',
+          publishStartDate: '',
+          title: folder.title,
+          toc: '[]',
+          extra: JSON.stringify({ js: '', css: '' })
+        })
+        created++
+      } catch (err) {
+        WIKI.logger.warn(`Failed to create folder index page at ${folder.localeCode}/${indexPath}: ${err.message}`)
+      }
+    }
+
+    if (created > 0) {
+      WIKI.logger.info(`Created ${created} missing folder index pages.`)
+      await WIKI.models.pages.rebuildTree()
+    }
+  }
+
   static async rebuildTree() {
     const rebuildJob = await WIKI.scheduler.registerJob({
       name: 'rebuild-tree',

@@ -205,25 +205,33 @@ module.exports = {
 
           const contentPath = pageHelper.getPagePath(item.oldPath)
           const contentDestinationPath = pageHelper.getPagePath(item.relPath)
-          await WIKI.models.pages.movePage({
-            user: user,
-            path: contentPath.path,
-            destinationPath: contentDestinationPath.path,
-            locale: contentPath.locale,
-            destinationLocale: contentPath.locale,
-            skipStorage: true
-          })
+          try {
+            await WIKI.models.pages.movePage({
+              user: user,
+              path: contentPath.path,
+              destinationPath: contentDestinationPath.path,
+              locale: contentPath.locale,
+              destinationLocale: contentPath.locale,
+              skipStorage: true
+            })
+          } catch (err) {
+            WIKI.logger.warn(`(STORAGE/GIT) Skipping move of ${item.oldPath}: ${err.message}`)
+          }
         } else if (!fileExists && !item.importAll && item.deletions > 0 && item.insertions === 0) {
           // Page was deleted by git, can safely mark as deleted in DB
           WIKI.logger.info(`(STORAGE/GIT) Page marked as deleted: ${item.relPath}`)
 
           const contentPath = pageHelper.getPagePath(item.relPath)
-          await WIKI.models.pages.deletePage({
-            user: user,
-            path: contentPath.path,
-            locale: contentPath.locale,
-            skipStorage: true
-          })
+          try {
+            await WIKI.models.pages.deletePage({
+              user: user,
+              path: contentPath.path,
+              locale: contentPath.locale,
+              skipStorage: true
+            })
+          } catch (err) {
+            WIKI.logger.warn(`(STORAGE/GIT) Skipping deletion of ${item.relPath}: ${err.message}`)
+          }
           continue
         }
 

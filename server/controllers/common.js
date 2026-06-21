@@ -176,7 +176,7 @@ router.get(['/e', '/e/*'], async (req, res, next) => {
       editorKey: null,
       mode: 'create',
       content: null,
-      title: null,
+      title: req.query.title || null,
       description: null,
       updatedAt: new Date().toISOString(),
       extra: {

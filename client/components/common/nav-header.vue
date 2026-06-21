@@ -252,6 +252,22 @@
     page-convert(v-model='convertPageModal', v-if='path && path.length')
     folder-create(v-model='newFolderModal')
 
+    v-dialog(v-model='folderMoveWarningModal', max-width='550')
+      v-card
+        .dialog-header.is-short.is-orange
+          v-icon.mr-2(color='white') mdi-alert
+          span Move Folder
+        v-card-text.pt-5
+          .body-1.font-weight-bold Folders cannot be moved with the move option.
+          .body-2.mt-3 To achieve the same effect:
+          ul.body-2.mt-1
+            li Create the new folder in the desired location
+            li Move each page or content individually
+            li Delete the source folder
+        v-card-chin
+          v-spacer
+          v-btn(text, @click='folderMoveWarningModal = false') {{$t('common:actions.ok')}}
+
     .nav-header-dev(v-if='isDevMode')
       v-icon mdi-alert
       div
@@ -295,6 +311,7 @@ export default {
       locales: siteLangs,
       isDevMode: false,
       newFolderModal: false,
+      folderMoveWarningModal: false,
       duplicateOpts: {
         locale: 'en',
         path: 'new-page',
@@ -414,8 +431,12 @@ export default {
     pageNew () {
       this.newPageModal = true
     },
-    pageNewCreate ({ path, locale }) {
-      window.location.assign(`/e/${locale}/${path}`)
+    pageNewCreate ({ path, locale, title }) {
+      let url = `/e/${locale}/${path}`
+      if (title) {
+        url += `?title=${encodeURIComponent(title)}`
+      }
+      window.location.assign(url)
     },
     pageView () {
       window.location.assign(`/${this.locale}/${this.path}`)
@@ -444,7 +465,11 @@ export default {
       this.convertPageModal = true
     },
     pageMove () {
-      this.movePageModal = true
+      if (this.path && this.path.endsWith('/index')) {
+        this.folderMoveWarningModal = true
+      } else {
+        this.movePageModal = true
+      }
     },
     async pageMoveRename ({ path, locale }) {
       this.$store.commit(`loadingStart`, 'page-move')

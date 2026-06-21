@@ -7,21 +7,31 @@
     overlay-opacity='.7'
     )
     v-card
-      .dialog-header.is-short.is-red
-        v-icon.mr-2(color='white') mdi-file-document-box-remove-outline
-        span {{$t('common:page.delete')}}
-      v-card-text.pt-5
-        i18next.body-1(path='common:page.deleteTitle', tag='div')
-          span.red--text.text--darken-2(place='title') {{pageTitle}}
-        .caption {{$t('common:page.deleteSubtitle')}}
-        v-chip.mt-3.ml-0.mr-1(label, color='red lighten-4', small)
-          .caption.red--text.text--darken-2 {{pageLocale.toUpperCase()}}
-        v-chip.mt-3.mx-0(label, color='red lighten-5', small)
-          span.red--text.text--darken-2 /{{pagePath}}
-      v-card-chin
-        v-spacer
-        v-btn(text, @click='discard', :disabled='loading') {{$t('common:actions.cancel')}}
-        v-btn.px-4(color='red darken-2', @click='deletePage', :loading='loading').white--text {{$t('common:actions.delete')}}
+      template(v-if='deleteError')
+        .dialog-header.is-short.is-red
+          v-icon.mr-2(color='white') mdi-alert-circle
+          span Cannot Delete Folder
+        v-card-text.pt-5
+          .body-1 {{deleteError}}
+        v-card-chin
+          v-spacer
+          v-btn(text, @click='discard') {{$t('common:actions.ok')}}
+      template(v-else)
+        .dialog-header.is-short.is-red
+          v-icon.mr-2(color='white') mdi-file-document-box-remove-outline
+          span {{$t('common:page.delete')}}
+        v-card-text.pt-5
+          i18next.body-1(path='common:page.deleteTitle', tag='div')
+            span.red--text.text--darken-2(place='title') {{pageTitle}}
+          .caption {{$t('common:page.deleteSubtitle')}}
+          v-chip.mt-3.ml-0.mr-1(label, color='red lighten-4', small)
+            .caption.red--text.text--darken-2 {{pageLocale.toUpperCase()}}
+          v-chip.mt-3.mx-0(label, color='red lighten-5', small)
+            span.red--text.text--darken-2 /{{pagePath}}
+        v-card-chin
+          v-spacer
+          v-btn(text, @click='discard', :disabled='loading') {{$t('common:actions.cancel')}}
+          v-btn.px-4(color='red darken-2', @click='deletePage', :loading='loading').white--text {{$t('common:actions.delete')}}
 </template>
 
 <script>
@@ -39,7 +49,8 @@ export default {
   },
   data() {
     return {
-      loading: false
+      loading: false,
+      deleteError: ''
     }
   },
   computed: {
@@ -62,6 +73,7 @@ export default {
   methods: {
     discard() {
       document.body.classList.remove('page-deleted-pending')
+      this.deleteError = ''
       this.isShown = false
     },
     async deletePage() {
@@ -87,7 +99,11 @@ export default {
             throw new Error(_.get(resp, 'data.pages.delete.responseResult.message', this.$t('common:error.unexpected')))
           }
         } catch (err) {
-          this.$store.commit('pushGraphError', err)
+          if (err.message && err.message.startsWith('Cannot delete this folder')) {
+            this.deleteError = err.message
+          } else {
+            this.$store.commit('pushGraphError', err)
+          }
         }
         this.$store.commit(`loadingStop`, 'page-delete')
         this.loading = false

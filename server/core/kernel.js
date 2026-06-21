@@ -86,6 +86,8 @@ module.exports = {
     await WIKI.models.storage.initTargets()
     WIKI.scheduler.start()
 
+    await WIKI.models.pages.ensureFolderIndexPages()
+
     await WIKI.models.subscribeToNotifications()
   },
   /**
