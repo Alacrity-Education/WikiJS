@@ -1,3 +1,6 @@
+> This fork contains a few changes to the permissions system. Most of them are were contributed to upstream, but not accepted, in [PR8013](https://github.com/requarks/wiki/pull/8013).
+> We have since migrated to V3 and will contribute similar features in the future. 
+
 <div align="center">
 
 <picture>
